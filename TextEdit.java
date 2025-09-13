@@ -16,8 +16,12 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.*;
 import javax.swing.text.*;
+import javax.swing.plaf.ColorUIResource;
+import javax.swing.plaf.FontUIResource;
+import javax.swing.plaf.nimbus.NimbusLookAndFeel;
 
 import java.awt.Component;
+import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -57,6 +61,341 @@ public final class TextEdit extends JFrame implements ActionListener{
     public static ArrayList<FileInfo> m_files = new ArrayList<FileInfo>();
 
     public boolean Saved(int i){return m_files.get(i).saved;};
+
+    class SyntaxHighlighter {
+        public static void SetTextColor(StyledDocument doc, int start, int length, Color color) {
+            Style style = doc.addStyle("TextColor", null);
+            StyleConstants.setForeground(style, color);
+            StyleConstants.setBackground(style, Color.GRAY);
+            doc.setCharacterAttributes(start, length, style, false);
+        }
+    }
+
+    class JavaSyntaxHighlighter {
+        private static boolean ValidKeyWord(String text, int start, int end){
+            char[] valid_spaces = {' ', '\n', ';', ',', ':', '.', '+', '-', '*', '/', '(', ')', '{', '}', '[', ']', '!', '=', '<', '>', '|', '&'};
+            int space_count = 22; // TODO: dynamic
+            boolean a = false;
+            boolean b = false;
+
+            if(start > 0){
+                for (int i = 0; i < space_count; i++){
+                    if(text.charAt(start - 1) == valid_spaces[i]){
+                        a = true;
+                        break;
+                    }
+                }
+            }else{
+                a = true;
+            }
+
+            if(end > 0){
+                for (int i = 0; i < space_count; i++){
+                    if(text.charAt(end) == valid_spaces[i]){
+                        b = true;
+                        break;
+                    }
+                }
+            }else{
+                b = true;
+            }
+            return a && b;
+        }
+
+        public static void Highlight(JTextPane textPane, StyledDocument doc) {
+            // Define syntax highlighting styles for Java
+            Style defaultStyle = textPane.getStyle(StyleContext.DEFAULT_STYLE);
+            Style keywordStyle = textPane.addStyle("KeywordStyle", defaultStyle);
+            StyleConstants.setForeground(keywordStyle, Color.BLUE);
+
+            
+
+            // Apply styles to keywords
+            String[] keywords = {
+                "abstract", "boolean", "break", "class", "extends", "for", "if", "new", "return",
+                "while", "public", "private", "static", "void", "int", "double", "import", "@Override"
+            };
+            String text = textPane.getText();
+            SyntaxHighlighter.SetTextColor(doc, 0, text.length(), Color.BLACK); // TODO multible styles (light/dark)
+
+
+            for (String keyword : keywords) {
+                int pos = 0;
+
+                while ((pos = text.indexOf(keyword, pos)) >= 0) {
+                    if(ValidKeyWord(text, pos, keyword.length() + pos)){
+                        SyntaxHighlighter.SetTextColor(doc, pos, keyword.length(), Color.BLUE);
+                    }
+                    pos += keyword.length();
+                }
+            }
+
+
+            // strings
+            int pos = 0;
+            int start = 0;
+            boolean flipFlop = false;
+            while ((pos = text.indexOf("\"", pos)) >= 0) {
+                if(flipFlop){
+                    flipFlop = false;
+                    SyntaxHighlighter.SetTextColor(doc, start, (pos - start) + 1, Color.WHITE);
+                }else{
+                    flipFlop = true;
+                    start = pos;
+                }
+                pos += 1;
+            }
+
+
+            //   chars
+            pos = 0;
+            start = 0;
+            flipFlop = false;
+            while ((pos = text.indexOf("\'", pos)) >= 0) {
+                if(flipFlop){
+                    flipFlop = false;
+                    SyntaxHighlighter.SetTextColor(doc, start, (pos - start) + 1, Color.WHITE);
+                }else{
+                    flipFlop = true;
+                    start = pos;
+                }
+                pos += 1;
+            }
+
+
+            // brackets
+            //   ()
+            pos = 0;
+            start = 0;
+            flipFlop = false;
+
+            ArrayList<Integer> openBrackets = new ArrayList<Integer>();
+            ArrayList<Integer> closedBrackets = new ArrayList<Integer>();
+
+            ArrayList<Boolean> openBracketsWrong = new ArrayList<Boolean>();
+            ArrayList<Boolean> closedBracketsWrong = new ArrayList<Boolean>();
+
+            while ((pos = text.indexOf("(", pos)) >= 0) {
+                System.out.println(pos);
+                openBrackets.add(pos);
+                openBracketsWrong.add(true);
+                pos += 1;
+            }
+            pos = 0;
+            while ((pos = text.indexOf(")", pos)) >= 0) {
+                System.out.println(pos);
+                closedBrackets.add(pos);
+                closedBracketsWrong.add(true);
+                pos += 1;
+            }
+            for(int i = 0; i < closedBrackets.size(); i++){
+                for(int x = 1; x < openBrackets.size(); x++){
+                    if((openBrackets.get(x) < closedBrackets.get(i)) && x < (closedBrackets.size() - 1)){
+                        continue;
+                    }
+                    x--;
+                    if(openBrackets.get(x) > closedBrackets.get(i)){
+                        break;
+                    }
+                    
+                    while(!openBracketsWrong.get(x) && x > 0){
+                        x--;
+                    };
+
+                    if(!openBracketsWrong.get(x)){
+                        break;
+                    }
+                    openBracketsWrong.set(x, false);
+                    closedBracketsWrong.set(i, false);
+                    break;
+                }
+            }
+            // mark unclosed brackets
+            for (int i = 0; i < closedBracketsWrong.size(); i++){
+                if(closedBracketsWrong.get(i)){
+                    SyntaxHighlighter.SetTextColor(doc, closedBrackets.get(i), 1, Color.RED);
+                }else{
+                    SyntaxHighlighter.SetTextColor(doc, closedBrackets.get(i), 1, Color.YELLOW);
+                }
+            }
+            for (int i = 0; i < openBracketsWrong.size(); i++){
+                if(openBracketsWrong.get(i)){
+                    SyntaxHighlighter.SetTextColor(doc, openBrackets.get(i), 1, Color.RED);
+                }else{
+                    SyntaxHighlighter.SetTextColor(doc, openBrackets.get(i), 1, Color.YELLOW);
+                }
+            }
+
+            //   {}
+            pos = 0;
+            start = 0;
+            flipFlop = false;
+
+            openBrackets = new ArrayList<Integer>();
+            closedBrackets = new ArrayList<Integer>();
+
+            openBracketsWrong = new ArrayList<Boolean>();
+            closedBracketsWrong = new ArrayList<Boolean>();
+
+            while ((pos = text.indexOf("{", pos)) >= 0) {
+                openBrackets.add(pos);
+                openBracketsWrong.add(true);
+                pos += 1;
+            }
+            pos = 0;
+            while ((pos = text.indexOf("}", pos)) >= 0) {
+                closedBrackets.add(pos);
+                closedBracketsWrong.add(true);
+                pos += 1;
+            }
+            for(int i = 0; i < closedBrackets.size(); i++){
+                for(int x = 1; x < openBrackets.size(); x++){
+                    if((openBrackets.get(x) < closedBrackets.get(i)) && x < (closedBrackets.size() - 1)){
+                        continue;
+                    }
+                    x--;
+                    if(openBrackets.get(x) > closedBrackets.get(i)){
+                        break;
+                    }
+                    
+                    while(!openBracketsWrong.get(x) && x > 0){
+                        x--;
+                    };
+
+                    if(!openBracketsWrong.get(x)){
+                        break;
+                    }
+                    openBracketsWrong.set(x, false);
+                    closedBracketsWrong.set(i, false);
+
+                    break;
+                }
+            }
+            // mark unclosed brackets
+            for (int i = 0; i < closedBracketsWrong.size(); i++){
+                if(closedBracketsWrong.get(i)){
+                    SyntaxHighlighter.SetTextColor(doc, closedBrackets.get(i), 1, Color.RED);
+                }else{
+                    SyntaxHighlighter.SetTextColor(doc, closedBrackets.get(i), 1, Color.YELLOW);
+                }
+            }
+            for (int i = 0; i < openBracketsWrong.size(); i++){
+                if(openBracketsWrong.get(i)){
+                    SyntaxHighlighter.SetTextColor(doc, openBrackets.get(i), 1, Color.RED);
+                }else{
+                    SyntaxHighlighter.SetTextColor(doc, openBrackets.get(i), 1, Color.YELLOW);
+                }
+            }
+
+            //   []
+            pos = 0;
+            start = 0;
+            flipFlop = false;
+
+            openBrackets = new ArrayList<Integer>();
+            closedBrackets = new ArrayList<Integer>();
+
+            openBracketsWrong = new ArrayList<Boolean>();
+            closedBracketsWrong = new ArrayList<Boolean>();
+
+            while ((pos = text.indexOf("[", pos)) >= 0) {
+                openBrackets.add(pos);
+                openBracketsWrong.add(true);
+                pos += 1;
+            }
+            pos = 0;
+            while ((pos = text.indexOf("]", pos)) >= 0) {
+                closedBrackets.add(pos);
+                closedBracketsWrong.add(true);
+                pos += 1;
+            }
+            for(int i = 0; i < closedBrackets.size(); i++){
+                for(int x = 1; x < openBrackets.size(); x++){
+                    if((openBrackets.get(x) < closedBrackets.get(i)) && x < (closedBrackets.size() - 1)){
+                        continue;
+                    }
+                    x--;
+                    if(openBrackets.get(x) > closedBrackets.get(i)){
+                        break;
+                    }
+                    
+                    while(!openBracketsWrong.get(x) && x > 0){
+                        x--;
+                    };
+
+                    if(!openBracketsWrong.get(x)){
+                        break;
+                    }
+                    openBracketsWrong.set(x, false);
+                    closedBracketsWrong.set(i, false);
+
+                    break;
+                }
+            }
+            // mark unclosed brackets
+            for (int i = 0; i < closedBracketsWrong.size(); i++){
+                if(closedBracketsWrong.get(i)){
+                    SyntaxHighlighter.SetTextColor(doc, closedBrackets.get(i), 1, Color.RED);
+                }else{
+                    SyntaxHighlighter.SetTextColor(doc, closedBrackets.get(i), 1, Color.YELLOW);
+                }
+            }
+            for (int i = 0; i < openBracketsWrong.size(); i++){
+                if(openBracketsWrong.get(i)){
+                    SyntaxHighlighter.SetTextColor(doc, openBrackets.get(i), 1, Color.RED);
+                }else{
+                    SyntaxHighlighter.SetTextColor(doc, openBrackets.get(i), 1, Color.YELLOW);
+                }
+            }
+
+
+            // last ones!!!!
+            // comments (//)
+            pos = 0;
+            start = 0;
+            flipFlop = false;
+            String cur_search = "//";
+            while ((pos = text.indexOf(cur_search, pos)) >= 0) {
+                if(flipFlop){
+                    flipFlop = false;
+                    cur_search = "//";
+                    SyntaxHighlighter.SetTextColor(doc, start, (pos - start), Color.GREEN);
+                }else{
+                    cur_search = "\n";
+                    flipFlop = true;
+                    start = pos;
+                }
+                pos += 1;
+            }
+            if(flipFlop){
+                SyntaxHighlighter.SetTextColor(doc, start, (pos - start), Color.GREEN);
+            }
+
+            // comments (/**/)
+            pos = 0;
+            start = 0;
+            flipFlop = false;
+            cur_search = "/*";
+            while ((pos = text.indexOf(cur_search, pos)) >= 0) {
+                if(flipFlop){
+                    flipFlop = false;
+                    cur_search = "/*";
+                    SyntaxHighlighter.SetTextColor(doc, start, (pos - start) + 2, Color.GREEN);
+                }else{
+                    cur_search = "*/";
+                    flipFlop = true;
+                    start = pos;
+                }
+                pos += 1;
+            }
+            if(flipFlop){
+                flipFlop = false;
+                cur_search = "//";
+                SyntaxHighlighter.SetTextColor(doc, start, (pos - start), Color.RED);
+            }
+        }
+    }
+
 
     private void SaveFile(int i){
         if(m_files.get(i).path.length() < 1){
@@ -116,7 +455,11 @@ public final class TextEdit extends JFrame implements ActionListener{
     public TextEdit() { run(); }
 
     public void OnChage(){
-        m_files.get(tabs.getSelectedIndex());
+        m_files.get(tabs.getSelectedIndex()).saved = false;
+        JScrollPane scrollPane = (JScrollPane) tabs.getSelectedComponent();
+        JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
+        StyledDocument doc = textPane.getStyledDocument();
+        //JavaSyntaxHighlighter.Highlight(textPane, doc);
     }
 
     /*private void OnChanged(DocumentEvent e){
@@ -129,6 +472,7 @@ public final class TextEdit extends JFrame implements ActionListener{
 
     private int NewTab(String name){
         JTextPane newText = new JTextPane();
+        newText.setBackground(Color.GRAY);
         newText.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -147,6 +491,7 @@ public final class TextEdit extends JFrame implements ActionListener{
         });
 
         JScrollPane newScroll = new JScrollPane(newText);
+        newScroll.setBackground(Color.GRAY);
         tabs.addTab(name, newScroll);
 
         m_files.add(new FileInfo(false, "", name));
@@ -167,6 +512,7 @@ public final class TextEdit extends JFrame implements ActionListener{
 
         // Set attributes of the app window
         tabs = new JTabbedPane();
+        tabs.setBackground(Color.GRAY);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.add(tabs);
         NewTab("New Java File");
@@ -174,9 +520,11 @@ public final class TextEdit extends JFrame implements ActionListener{
 
         frame.setSize(640, 480);
         frame.setVisible(true);
+        frame.setBackground(Color.GRAY);
 
         // Build the menu
         JMenuBar menu_main = new JMenuBar();
+        menu_main.setBackground(Color.GRAY);
 
         JMenu menu_file = new JMenu("File");
 
@@ -197,6 +545,20 @@ public final class TextEdit extends JFrame implements ActionListener{
         menu_file.add(menuitem_save);
         menu_file.add(menuitem_quit);
 
+
+        // colorer (TODO make automatic)
+        JButton format_button = new JButton("Format");
+        format_button.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JScrollPane scrollPane = (JScrollPane) tabs.getSelectedComponent();
+                JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
+                StyledDocument doc = textPane.getStyledDocument();
+                JavaSyntaxHighlighter.Highlight(textPane, doc);
+            }
+        });
+
+        // compiler 
         JButton compile_button = new JButton("Compile");
         compile_button.addActionListener(new ActionListener(){
             @Override
@@ -209,6 +571,7 @@ public final class TextEdit extends JFrame implements ActionListener{
             }
         });
 
+        // runner
         JButton run_button = new JButton("Run");
         run_button.addActionListener(new ActionListener(){
             @Override
@@ -221,6 +584,7 @@ public final class TextEdit extends JFrame implements ActionListener{
             }
         });
 
+        menu_main.add(format_button);
         menu_main.add(compile_button);
         menu_main.add(run_button);
 
@@ -246,16 +610,19 @@ public final class TextEdit extends JFrame implements ActionListener{
                 int id = NewTab(f.getName());
                 FileReader read = new FileReader(f);
                 Scanner scan = new Scanner(read);
-                JScrollPane scrollPane = (JScrollPane) tabs.getSelectedComponent();
+                JScrollPane scrollPane = (JScrollPane) tabs.getComponentAt(id);
                 JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
                 StyledDocument doc = textPane.getStyledDocument();
 
                 m_files.get(id).saved = true;
+                m_files.get(id).path = jfc.getSelectedFile().getAbsolutePath();
 
                 while(scan.hasNextLine()){
                     String line = scan.nextLine() + "\n";
                     doc.insertString(doc.getLength(), line, null);
                 }
+
+                JavaSyntaxHighlighter.Highlight(textPane, doc);
             }
             catch ( FileNotFoundException ex) { ex.printStackTrace(); }
             catch (BadLocationException b){
