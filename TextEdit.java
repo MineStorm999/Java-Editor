@@ -7,11 +7,15 @@ import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 import javax.swing.JButton;
+import javax.swing.JTextPane;
+import javax.swing.JTabbedPane;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.*;
+import javax.swing.text.*;
 
 import java.awt.Component;
 import java.awt.event.ActionEvent;
@@ -26,59 +30,128 @@ import java.io.IOException;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 
 public final class TextEdit extends JFrame implements ActionListener{
-    private static JTextArea area;
+    class FileInfo{
+        boolean saved;
+        String path;
+        String name;
+
+        public FileInfo(boolean s, String pt, String nm){
+            saved = s;
+            path = pt;
+            name = nm; 
+        }
+    }
+
+
+    private static JTabbedPane tabs;
     private static JFrame frame;
     private static int returnValue = 0;
 
     private static String file_path;
-    private static boolean m_saved = true;
 
-    public boolean Saved(){return m_saved;};
+    public static ArrayList<FileInfo> m_files = new ArrayList<FileInfo>();
 
-    private void SaveFile(){
-        JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
-        jfc.setDialogTitle("Choose destination.");
-        jfc.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-        returnValue = jfc.showSaveDialog(null);
+    public boolean Saved(int i){return m_files.get(i).saved;};
+
+    private void SaveFile(int i){
+        if(m_files.get(i).path.length() < 1){
+            JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
+            jfc.setDialogTitle("Choose destination.");
+            jfc.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+            returnValue = jfc.showSaveDialog(null);
+            m_files.get(i).path = jfc.getSelectedFile().getAbsolutePath();
+        }
         try {
-            File f = new File(jfc.getSelectedFile().getAbsolutePath());
+            System.out.println("Saving file: " + m_files.get(i).path);
+            File f = new File(m_files.get(i).path);
+
+            tabs.setTabComponentAt(0, new JLabel(f.getName()));
+
             FileWriter out = new FileWriter(f);
-            out.write(area.getText());
+            JScrollPane scrollPane = (JScrollPane) tabs.getComponentAt(i);
+            JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
+            StyledDocument doc = textPane.getStyledDocument();
+            out.write(doc.getText(0, doc.getLength()));
             out.close();
-            m_saved = true;
+            m_files.get(i).saved = true;
         } catch (FileNotFoundException ex) {
             Component f = null;
             JOptionPane.showMessageDialog(f,"File not found.");
         } catch (IOException ex) {
             Component f = null;
             JOptionPane.showMessageDialog(f,"Error.");
+        } catch (BadLocationException b){
+            System.out.println("Error copying text");
+            return;
         }
     }
 
     private void HandleUnsaved(){
-        if(Saved()){
-            return;
+        int i = 0;
+        while(m_files.get(i).saved){
+            i++;
+            if(i >= m_files.size()){
+                return;
+            }
         }
         Object[] options = { "YES", "NO" };
-        int ret = JOptionPane.showOptionDialog(null, "You have one unsaved File, do you want to save it?", "Unsaved File", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
+        int ret = JOptionPane.showOptionDialog(null, "You have at least one unsaved File, do you want to save them?", "Unsaved File(s)", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
         if(ret > 0){
             return;
         }
-
-        SaveFile();
+        for(i = 0; i < m_files.size(); i++){
+            if(Saved(i)){
+                continue;
+            }
+            SaveFile(i);
+        }
     }
 
 
     public TextEdit() { run(); }
 
-    private void OnChanged(DocumentEvent e){
-        m_saved = false;
+    public void OnChage(){
+        m_files.get(tabs.getSelectedIndex());
     }
 
+    /*private void OnChanged(DocumentEvent e){
+        m_saved = false;
+    }*/
 
+    void OpenFile(){
+
+    }
+
+    private int NewTab(String name){
+        JTextPane newText = new JTextPane();
+        newText.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                OnChage();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                OnChage();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                OnChage();
+            }
+        });
+
+        JScrollPane newScroll = new JScrollPane(newText);
+        tabs.addTab(name, newScroll);
+
+        m_files.add(new FileInfo(false, "", name));
+        return tabs.getTabCount() - 1;
+    }
 
     public void run() {
         frame = new JFrame("Java Editor");
@@ -93,23 +166,12 @@ public final class TextEdit extends JFrame implements ActionListener{
         }
 
         // Set attributes of the app window
-        area = new JTextArea();
+        tabs = new JTabbedPane();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.add(tabs);
+        NewTab("New Java File");
 
-        area.getDocument().addDocumentListener(new DocumentListener() {
-            public void changedUpdate(DocumentEvent e) {
-                OnChanged(e);
-            }
-            public void removeUpdate(DocumentEvent e) {
-                OnChanged(e);
-            }
-            public void insertUpdate(DocumentEvent e) {
-                OnChanged(e);
-            }
-        });
 
-        JScrollPane scroll_pane = new JScrollPane(area);
-        frame.add(scroll_pane);
         frame.setSize(640, 480);
         frame.setVisible(true);
 
@@ -139,10 +201,11 @@ public final class TextEdit extends JFrame implements ActionListener{
         compile_button.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e) {
-                if(TextEdit.file_path.length() < 1){
+                int id = TextEdit.tabs.getSelectedIndex();
+                if(TextEdit.m_files.get(id).path.length() < 1){
                     HandleUnsaved();
                 }
-                Compiler.Compile(TextEdit.file_path);
+                Compiler.Compile(TextEdit.m_files.get(id).path);
             }
         });
 
@@ -150,10 +213,11 @@ public final class TextEdit extends JFrame implements ActionListener{
         run_button.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e) {
-                if(TextEdit.file_path.length() < 1){
+                int id = TextEdit.tabs.getSelectedIndex();
+                if(TextEdit.m_files.get(id).path.length() < 1){
                     HandleUnsaved();
                 }
-                Compiler.Run(TextEdit.file_path);
+                Compiler.Run(TextEdit.m_files.get(id).path);
             }
         });
 
@@ -173,30 +237,36 @@ public final class TextEdit extends JFrame implements ActionListener{
 
         String ae = e.getActionCommand();
         if (ae.equals("Open")) { // open new
-            HandleUnsaved();
-
+            //HandleUnsaved();
+            
             returnValue = jfc.showOpenDialog(null);
             if (returnValue == JFileChooser.APPROVE_OPTION) {
                 File f = new File(jfc.getSelectedFile().getAbsolutePath());
             try{
+                int id = NewTab(f.getName());
                 FileReader read = new FileReader(f);
                 Scanner scan = new Scanner(read);
+                JScrollPane scrollPane = (JScrollPane) tabs.getSelectedComponent();
+                JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
+                StyledDocument doc = textPane.getStyledDocument();
+
+                m_files.get(id).saved = true;
+
                 while(scan.hasNextLine()){
                     String line = scan.nextLine() + "\n";
-                    ingest = ingest + line;
-            }
-                area.setText(ingest);
-                file_path = jfc.getSelectedFile().getAbsolutePath();
+                    doc.insertString(doc.getLength(), line, null);
+                }
             }
             catch ( FileNotFoundException ex) { ex.printStackTrace(); }
+            catch (BadLocationException b){
+                return;
             }
+        }
         // SAVE
         } else if (ae.equals("Save")) {
-            SaveFile();
+            SaveFile(tabs.getSelectedIndex());
         } else if (ae.equals("New")) {
-            HandleUnsaved();
-            area.setText("");
-            file_path = "";
+            NewTab("New Java File");
         } else if (ae.equals("Quit")) {
             HandleUnsaved();
             System.exit(0);
