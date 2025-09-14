@@ -1,0 +1,3 @@
+#!/bin/bash
+
+javac Main.java CommandExecuter.java Compiler.java Log.java TextEdit.java
