@@ -584,6 +584,7 @@ public final class TextEdit extends JFrame implements ActionListener{
             @Override
             public void actionPerformed(ActionEvent e) {
                 int id = TextEdit.tabs.getSelectedIndex();
+                SaveFile(id);
                 if(TextEdit.m_files.get(id).path.length() < 1){
                     HandleUnsaved();
                 }
@@ -597,6 +598,7 @@ public final class TextEdit extends JFrame implements ActionListener{
             @Override
             public void actionPerformed(ActionEvent e) {
                 int id = TextEdit.tabs.getSelectedIndex();
+                SaveFile(id);
                 if(TextEdit.m_files.get(id).path.length() < 1){
                     HandleUnsaved();
                 }

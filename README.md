@@ -1,6 +1,13 @@
 # Java-Editor
 I am making a custom Java Editor, because my teacher wants to use one that I don't like
 
+# Features
+- very!!! basic syntax highliting
+- compilation button
+- run button
+- integrated log, with Message, Warning and Error severity
+- file save
+
 # Requirements
 - Java SDK installed
 
