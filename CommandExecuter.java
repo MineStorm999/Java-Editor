@@ -7,14 +7,14 @@ import java.util.Scanner;
 public class CommandExecuter{
     public static void ExecuteCommand(String command) {
         try {
-            log(command);
+            Log.Message(command);
             Process process = Runtime.getRuntime().exec(command);
             BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line = null;
             while (true) {
                 line = in.readLine();
                 if (line == null) { break; }
-                System.out.println(line);
+                Log.Message(line);
             }
 
             BufferedReader errors = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -22,17 +22,11 @@ public class CommandExecuter{
             while (true) {
                 line = errors.readLine();
                 if (line == null) { break; }
-                System.out.println(line);
+                Log.Error(line);
             }
             process.waitFor();
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
-    }
-
-    //private static SimpleDateFormat format = new SimpleDateFormat("MM/dd/yyyy hh:mm:ss:SSS");
-
-    private static void log(String message) {
-        System.out.println(message);
     }
 }

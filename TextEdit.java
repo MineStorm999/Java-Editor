@@ -24,6 +24,9 @@ import java.awt.Component;
 import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.BorderLayout;
+import java.awt.Container;
+import java.awt.Dimension;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -51,7 +54,7 @@ public final class TextEdit extends JFrame implements ActionListener{
         }
     }
 
-
+    private static Container layout;
     private static JTabbedPane tabs;
     private static JFrame frame;
     private static int returnValue = 0;
@@ -466,10 +469,6 @@ public final class TextEdit extends JFrame implements ActionListener{
         m_saved = false;
     }*/
 
-    void OpenFile(){
-
-    }
-
     private int NewTab(String name){
         JTextPane newText = new JTextPane();
         newText.setBackground(Color.GRAY);
@@ -513,14 +512,26 @@ public final class TextEdit extends JFrame implements ActionListener{
         // Set attributes of the app window
         tabs = new JTabbedPane();
         tabs.setBackground(Color.GRAY);
+
+        layout = frame.getContentPane();
+
+        layout.add(tabs, BorderLayout.CENTER);
+
+        layout.add(Log.Init(), BorderLayout.PAGE_END);
+
+        for (int i = 0; i < 100; i++){
+            Log.Message("Test");
+            Log.Warning("Test");
+            Log.Error("Test");
+        }
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.add(tabs);
         NewTab("New Java File");
 
 
         frame.setSize(640, 480);
         frame.setVisible(true);
         frame.setBackground(Color.GRAY);
+
 
         // Build the menu
         JMenuBar menu_main = new JMenuBar();
@@ -546,6 +557,15 @@ public final class TextEdit extends JFrame implements ActionListener{
         menu_file.add(menuitem_quit);
 
 
+        // clear log button
+        JButton clear_button = new JButton("Clear Log");
+        clear_button.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Log.Clear();
+            }
+        });
+
         // colorer (TODO make automatic)
         JButton format_button = new JButton("Format");
         format_button.addActionListener(new ActionListener(){
@@ -567,7 +587,7 @@ public final class TextEdit extends JFrame implements ActionListener{
                 if(TextEdit.m_files.get(id).path.length() < 1){
                     HandleUnsaved();
                 }
-                Compiler.Compile(TextEdit.m_files.get(id).path);
+                Compiler.CopileCMD(TextEdit.m_files.get(id).path);
             }
         });
 
@@ -584,6 +604,7 @@ public final class TextEdit extends JFrame implements ActionListener{
             }
         });
 
+        menu_main.add(clear_button);
         menu_main.add(format_button);
         menu_main.add(compile_button);
         menu_main.add(run_button);
