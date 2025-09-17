@@ -22,8 +22,7 @@ I am making a custom Java Editor, because my teacher wants to use one that I don
 
 # TODO
 - FIX BUGS
-    - Syntax isn't applied correctly 
-        - String pos has to be incremented by lenght, not 1
+    - Syntax isn't applied correctly
 
 - javac Error parsing 
     - jump to error/warning file, line and character
