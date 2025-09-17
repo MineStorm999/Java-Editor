@@ -29,6 +29,8 @@ I am making a custom Java Editor, because my teacher wants to use one that I don
 
 - Source Folder system like vs code
 
+- Use Mono space Font!!!
+
 - Intelisense
     - read available sources
     - read from Java docs
