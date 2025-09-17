@@ -22,7 +22,7 @@ I am making a custom Java Editor, because my teacher wants to use one that I don
 
 # TODO
 - FIX BUGS
-    - Brackets are not formatted correctly
+    - Syntax isn't applied correctly 
 
 - javac Error parsing 
     - jump to error/warning file, line and character
