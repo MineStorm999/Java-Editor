@@ -7,6 +7,7 @@ I am making a custom Java Editor, because my teacher wants to use one that I don
 - run button
 - integrated log, with Message, Warning and Error severity
 - file save
+- Folder Structure like vs code
 
 # Requirements
 - Java SDK installed
@@ -22,11 +23,10 @@ I am making a custom Java Editor, because my teacher wants to use one that I don
 # TODO
 - FIX BUGS
     - Brackets are not formatted correctly
+    - General format fixing
 
 - javac Error parsing 
     - jump to error/warning file, line and character
-
-- Source Folder system like vs code
 
 - Intelisense
     - read available sources
