@@ -9,16 +9,21 @@ import javax.swing.JScrollPane;
 import javax.swing.JButton;
 import javax.swing.JTextPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTree;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
 import javax.swing.*;
 import javax.swing.text.*;
 import javax.swing.plaf.ColorUIResource;
 import javax.swing.plaf.FontUIResource;
 import javax.swing.plaf.nimbus.NimbusLookAndFeel;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreeSelectionModel;
 
 import java.awt.Component;
 import java.awt.Color;
@@ -27,6 +32,7 @@ import java.awt.event.ActionListener;
 import java.awt.BorderLayout;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Font;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -34,6 +40,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import java.nio.file.*;
+
+import java.util.*;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -41,21 +50,29 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 
-public final class TextEdit extends JFrame implements ActionListener{
+
+
+public final class TextEdit extends JFrame implements ActionListener implements TreeSelectionListener {
+
     class FileInfo{
         boolean saved;
-        String path;
+        Path path;
         String name;
 
-        public FileInfo(boolean s, String pt, String nm){
+        public FileInfo(boolean s, Path pt, String nm){
             saved = s;
             path = pt;
-            name = nm; 
+            name = nm;
+        }
+
+        public String toString(){
+            return name;
         }
     }
 
     private static Container layout;
     private static JTabbedPane tabs;
+    private static JTree tree;
     private static JFrame frame;
     private static int returnValue = 0;
 
@@ -64,6 +81,133 @@ public final class TextEdit extends JFrame implements ActionListener{
     public static ArrayList<FileInfo> m_files = new ArrayList<FileInfo>();
 
     public boolean Saved(int i){return m_files.get(i).saved;};
+
+
+    Collection<Path> allFiles;
+
+    Path root_folder;
+
+    private void setFont(FontUIResource myFont) {
+        UIManager.put("CheckBoxMenuItem.acceleratorFont", myFont);
+        UIManager.put("Button.font", myFont);
+        UIManager.put("ToggleButton.font", myFont);
+        UIManager.put("RadioButton.font", myFont);
+        UIManager.put("CheckBox.font", myFont);
+        UIManager.put("ColorChooser.font", myFont);
+        UIManager.put("ComboBox.font", myFont);
+        UIManager.put("Label.font", myFont);
+        UIManager.put("List.font", myFont);
+        UIManager.put("MenuBar.font", myFont);
+        UIManager.put("Menu.acceleratorFont", myFont);
+        UIManager.put("RadioButtonMenuItem.acceleratorFont", myFont);
+        UIManager.put("MenuItem.acceleratorFont", myFont);
+        UIManager.put("MenuItem.font", myFont);
+        UIManager.put("RadioButtonMenuItem.font", myFont);
+        UIManager.put("CheckBoxMenuItem.font", myFont);
+        UIManager.put("OptionPane.buttonFont", myFont);
+        UIManager.put("OptionPane.messageFont", myFont);
+        UIManager.put("Menu.font", myFont);
+        UIManager.put("PopupMenu.font", myFont);
+        UIManager.put("OptionPane.font", myFont);
+        UIManager.put("Panel.font", myFont);
+        UIManager.put("ProgressBar.font", myFont);
+        UIManager.put("ScrollPane.font", myFont);
+        UIManager.put("Viewport.font", myFont);
+        UIManager.put("TabbedPane.font", myFont);
+        UIManager.put("Slider.font", myFont);
+        UIManager.put("Table.font", myFont);
+        UIManager.put("TableHeader.font", myFont);
+        UIManager.put("TextField.font", myFont);
+        UIManager.put("Spinner.font", myFont);
+        UIManager.put("PasswordField.font", myFont);
+        UIManager.put("TextArea.font", myFont);
+        UIManager.put("TextPane.font", myFont);
+        UIManager.put("EditorPane.font", myFont);
+        UIManager.put("TabbedPane.smallFont", myFont);
+        UIManager.put("TitledBorder.font", myFont);
+        UIManager.put("ToolBar.font", myFont);
+        UIManager.put("ToolTip.font", myFont);
+        UIManager.put("Tree.font", myFont);
+        UIManager.put("FormattedTextField.font", myFont);
+        UIManager.put("IconButton.font", myFont);
+        UIManager.put("InternalFrame.optionDialogTitleFont", myFont);
+        UIManager.put("InternalFrame.paletteTitleFont", myFont);
+        UIManager.put("InternalFrame.titleFont", myFont);
+    }
+
+    public void RescanDir(){
+        allFiles = new ArrayList<Path>();
+        while(m_files.size() > 0){
+            m_files.remove(0);
+            tabs.remove(0);
+        }
+        
+        NewTab("New Java File");
+        DefaultMutableTreeNode top = new DefaultMutableTreeNode("Root");
+        try {
+            AddTree(top, root_folder, allFiles);
+        }catch (IOException ioE){
+            Log.Error("got some IO error");
+        }catch (NullPointerException ex){
+            Log.Error("got some nullptr error");
+        }
+
+        tree = new JTree(top);
+        tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        tree.addTreeSelectionListener(this);
+
+        JScrollPane treeView = new JScrollPane(tree);
+        layout.add(treeView, BorderLayout.LINE_START);
+    }
+
+    private void AddTree(DefaultMutableTreeNode parent, Path directory, Collection<Path> all) throws IOException {
+        Log.Message("Stepping into: " + directory.getFileName().toString());
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(directory)) {
+            for (Path child : ds) {
+                Log.Message(child.getFileName().toString());
+                if (Files.isDirectory(child)) {
+                    DefaultMutableTreeNode child_node = new DefaultMutableTreeNode(child.getFileName().toString());
+                    parent.add(child_node);
+
+                    AddTree(child_node, child, all);
+                }else{
+                    String file_str =  child.toString();
+                    if(file_str.endsWith(".java")){
+                        Log.Message("Adding " + child.getFileName().toString());
+                        JButton button = new JButton(child.getFileName().toString());
+                        button.addActionListener(new ActionListener(){
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                Open(child);
+                            }
+                        });
+                        DefaultMutableTreeNode child_node = new DefaultMutableTreeNode(new FileInfo(true, child, child.getFileName().toString()));
+                        parent.add(child_node);
+                        all.add(child);
+                    }
+                }
+
+            }
+        }
+    }
+
+    public void valueChanged(TreeSelectionEvent e) {
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
+
+        if (node == null) return;
+
+        Object nodeInfo = node.getUserObject();
+        if (!node.isLeaf()) {
+            return;
+        }
+        FileInfo file_infsoas = (FileInfo)nodeInfo;
+        if(file_infsoas == null){
+            return;
+        }
+        
+        Open(file_infsoas.path);
+    }
+
 
     class SyntaxHighlighter {
         public static void SetTextColor(StyledDocument doc, int start, int length, Color color) {
@@ -179,14 +323,14 @@ public final class TextEdit extends JFrame implements ActionListener{
             ArrayList<Boolean> closedBracketsWrong = new ArrayList<Boolean>();
 
             while ((pos = text.indexOf("(", pos)) >= 0) {
-                System.out.println(pos);
+                //System.out.println(pos);
                 openBrackets.add(pos);
                 openBracketsWrong.add(true);
                 pos += 1;
             }
             pos = 0;
             while ((pos = text.indexOf(")", pos)) >= 0) {
-                System.out.println(pos);
+                //System.out.println(pos);
                 closedBrackets.add(pos);
                 closedBracketsWrong.add(true);
                 pos += 1;
@@ -399,18 +543,71 @@ public final class TextEdit extends JFrame implements ActionListener{
         }
     }
 
+    private void Open(Path path){
+        try {
+            path = path.toRealPath();
+        }catch (IOException iE){
+            Log.Error("invald Path");
+            return;
+        }
+
+        for(int i = 0; i < m_files.size(); i++){
+            try{
+                if(m_files.get(i).path.toRealPath().compareTo(path) < 1){
+                    tabs.setSelectedIndex(i);
+                    Log.Message(path.toString() + " is already open!");
+                    return;
+                }
+            }catch (IOException iE){
+                continue;
+            }
+        }
+/*
+        String ingest = null;
+        JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
+        jfc.setDialogTitle("Choose destination.");
+        jfc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+
+
+        returnValue = jfc.showOpenDialog(null);*/
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File f = path.toFile();
+            try{
+                int id = NewTab(f.getName());
+                FileReader read = new FileReader(f);
+                Scanner scan = new Scanner(read);
+                JScrollPane scrollPane = (JScrollPane) tabs.getComponentAt(id);
+                JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
+                StyledDocument doc = textPane.getStyledDocument();
+
+                m_files.get(id).saved = true;
+                m_files.get(id).path = path;
+
+                while(scan.hasNextLine()){
+                    String line = scan.nextLine() + "\n";
+                    doc.insertString(doc.getLength(), line, null);
+                }
+
+                JavaSyntaxHighlighter.Highlight(textPane, doc);
+            }
+            catch ( FileNotFoundException ex) { ex.printStackTrace(); }
+            catch (BadLocationException b){
+                return;
+            }
+        }
+    }
 
     private void SaveFile(int i){
-        if(m_files.get(i).path.length() < 1){
+        if(m_files.get(i).path.toString().length() < 1){
             JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
             jfc.setDialogTitle("Choose destination.");
             jfc.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
             returnValue = jfc.showSaveDialog(null);
-            m_files.get(i).path = jfc.getSelectedFile().getAbsolutePath();
+            m_files.get(i).path = Paths.get(jfc.getSelectedFile().getAbsolutePath());
         }
         try {
-            System.out.println("Saving file: " + m_files.get(i).path);
-            File f = new File(m_files.get(i).path);
+            System.out.println("Saving file: " + m_files.get(i).path.toString());
+            File f = m_files.get(i).path.toFile();
 
             tabs.setTabComponentAt(0, new JLabel(f.getName()));
 
@@ -434,11 +631,9 @@ public final class TextEdit extends JFrame implements ActionListener{
     }
 
     private void HandleUnsaved(){
-        int i = 0;
-        while(m_files.get(i).saved){
-            i++;
-            if(i >= m_files.size()){
-                return;
+        for (int i = 0; i < m_files.size(); i++){
+            if(!m_files.get(i).saved){
+                break;
             }
         }
         Object[] options = { "YES", "NO" };
@@ -446,7 +641,7 @@ public final class TextEdit extends JFrame implements ActionListener{
         if(ret > 0){
             return;
         }
-        for(i = 0; i < m_files.size(); i++){
+        for(int i = 0; i < m_files.size(); i++){
             if(Saved(i)){
                 continue;
             }
@@ -493,11 +688,13 @@ public final class TextEdit extends JFrame implements ActionListener{
         newScroll.setBackground(Color.GRAY);
         tabs.addTab(name, newScroll);
 
-        m_files.add(new FileInfo(false, "", name));
+        m_files.add(new FileInfo(false, Paths.get(""), name));
         return tabs.getTabCount() - 1;
     }
 
     public void run() {
+        setFont(new FontUIResource(new Font("monospaced", Font.PLAIN, 14)));
+
         frame = new JFrame("Java Editor");
         file_path = "";
 
@@ -518,15 +715,16 @@ public final class TextEdit extends JFrame implements ActionListener{
         layout.add(tabs, BorderLayout.CENTER);
 
         layout.add(Log.Init(), BorderLayout.PAGE_END);
-
+/*
         for (int i = 0; i < 100; i++){
             Log.Message("Test");
             Log.Warning("Test");
             Log.Error("Test");
-        }
+        }*/
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        NewTab("New Java File");
 
+        RescanDir();
+        
 
         frame.setSize(640, 480);
         frame.setVisible(true);
@@ -540,7 +738,7 @@ public final class TextEdit extends JFrame implements ActionListener{
         JMenu menu_file = new JMenu("File");
 
         JMenuItem menuitem_new = new JMenuItem("New");
-        JMenuItem menuitem_open = new JMenuItem("Open");
+        JMenuItem menuitem_open = new JMenuItem("Open Folder");
         JMenuItem menuitem_save = new JMenuItem("Save");
         JMenuItem menuitem_quit = new JMenuItem("Quit");
 
@@ -585,10 +783,10 @@ public final class TextEdit extends JFrame implements ActionListener{
             public void actionPerformed(ActionEvent e) {
                 int id = TextEdit.tabs.getSelectedIndex();
                 SaveFile(id);
-                if(TextEdit.m_files.get(id).path.length() < 1){
+                if(TextEdit.m_files.get(id).path.toString().length() < 1){
                     HandleUnsaved();
                 }
-                Compiler.CopileCMD(TextEdit.m_files.get(id).path);
+                Compiler.CopileCMD(TextEdit.m_files.get(id).path.toString());
             }
         });
 
@@ -599,10 +797,10 @@ public final class TextEdit extends JFrame implements ActionListener{
             public void actionPerformed(ActionEvent e) {
                 int id = TextEdit.tabs.getSelectedIndex();
                 SaveFile(id);
-                if(TextEdit.m_files.get(id).path.length() < 1){
+                if(TextEdit.m_files.get(id).path.toString().length() < 1){
                     HandleUnsaved();
                 }
-                Compiler.Run(TextEdit.m_files.get(id).path);
+                Compiler.Run(TextEdit.m_files.get(id).path.toString());
             }
         });
 
@@ -617,43 +815,25 @@ public final class TextEdit extends JFrame implements ActionListener{
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        String ingest = null;
-        JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
-        jfc.setDialogTitle("Choose destination.");
-        jfc.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        
 
         String ae = e.getActionCommand();
-        if (ae.equals("Open")) { // open new
+        if (ae.equals("Open Folder")) { // open new
             //HandleUnsaved();
-            
+            String ingest = null;
+            JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
+            jfc.setDialogTitle("Choose Folder.");
+            jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
             returnValue = jfc.showOpenDialog(null);
+
             if (returnValue == JFileChooser.APPROVE_OPTION) {
-                File f = new File(jfc.getSelectedFile().getAbsolutePath());
-            try{
-                int id = NewTab(f.getName());
-                FileReader read = new FileReader(f);
-                Scanner scan = new Scanner(read);
-                JScrollPane scrollPane = (JScrollPane) tabs.getComponentAt(id);
-                JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
-                StyledDocument doc = textPane.getStyledDocument();
-
-                m_files.get(id).saved = true;
-                m_files.get(id).path = jfc.getSelectedFile().getAbsolutePath();
-
-                while(scan.hasNextLine()){
-                    String line = scan.nextLine() + "\n";
-                    doc.insertString(doc.getLength(), line, null);
-                }
-
-                JavaSyntaxHighlighter.Highlight(textPane, doc);
-            }
-            catch ( FileNotFoundException ex) { ex.printStackTrace(); }
-            catch (BadLocationException b){
-                return;
+                HandleUnsaved();
+                root_folder = Paths.get(jfc.getSelectedFile().getAbsolutePath());
+                RescanDir();
             }
         }
-        // SAVE
-        } else if (ae.equals("Save")) {
+        else if (ae.equals("Save")) {
             SaveFile(tabs.getSelectedIndex());
         } else if (ae.equals("New")) {
             NewTab("New Java File");

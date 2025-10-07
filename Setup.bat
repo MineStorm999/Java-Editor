@@ -1,1 +1,1 @@
-javac Main.java CommandExecuter.java Compiler.java Log.java TextEdit.java
+javac Main.java CommandExecuter.java Compiler.java Log.java TextEdit.java 
