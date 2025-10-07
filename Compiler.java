@@ -1,4 +1,6 @@
 import javax.tools.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 /*
 class InMemoryJavaFile extends SimpleJavaFileObject {
     private final String code;
@@ -23,11 +25,20 @@ public class Compiler{
         boolean success;
     }
 
+    public static boolean CopileCMD(ArrayList<FileInfo> files_to_compile){ // returns false on error
+        String command = "javac ";
+        for (FileInfo info : files_to_compile){
+            command += info.path.toString() + " ";
+        }
+
+        
+        return CommandExecuter.ExecuteCommand(command) == 0;
+    }
+
     public static boolean CopileCMD(String file){
         String command = "javac " + file;
 
-        CommandExecuter.ExecuteCommand(command);
-        return true;
+        return CommandExecuter.ExecuteCommand(command) == 0; // returns false on error
     }
 
 /*

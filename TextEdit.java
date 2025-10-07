@@ -49,26 +49,44 @@ import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-
-
-
-public final class TextEdit extends JFrame implements ActionListener implements TreeSelectionListener {
-
-    class FileInfo{
+class FileInfo{
         boolean saved;
+        boolean compiled;
         Path path;
         String name;
 
-        public FileInfo(boolean s, Path pt, String nm){
+        public FileInfo(boolean s, Path pt, String nm, boolean cmpt){
             saved = s;
             path = pt;
             name = nm;
+            compiled = cmpt;
         }
 
         public String toString(){
             return name;
         }
     }
+
+
+public final class TextEdit extends JFrame implements ActionListener {
+
+    /*class FileInfo{
+        boolean saved;
+        boolean compiled;
+        Path path;
+        String name;
+
+        public FileInfo(boolean s, Path pt, String nm, boolean cmpt){
+            saved = s;
+            path = pt;
+            name = nm;
+            compiled = cmpt;
+        }
+
+        public String toString(){
+            return name;
+        }
+    }*/
 
     private static Container layout;
     private static JTabbedPane tabs;
@@ -79,6 +97,8 @@ public final class TextEdit extends JFrame implements ActionListener implements 
     private static String file_path;
 
     public static ArrayList<FileInfo> m_files = new ArrayList<FileInfo>();
+    public static ArrayList<FileInfo> m_files_not_compiled = new ArrayList<FileInfo>();
+    
 
     public boolean Saved(int i){return m_files.get(i).saved;};
 
@@ -142,7 +162,6 @@ public final class TextEdit extends JFrame implements ActionListener implements 
             tabs.remove(0);
         }
         
-        NewTab("New Java File");
         DefaultMutableTreeNode top = new DefaultMutableTreeNode("Root");
         try {
             AddTree(top, root_folder, allFiles);
@@ -154,7 +173,24 @@ public final class TextEdit extends JFrame implements ActionListener implements 
 
         tree = new JTree(top);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-        tree.addTreeSelectionListener(this);
+        tree.addTreeSelectionListener(new TreeSelectionListener(){
+            public void valueChanged(TreeSelectionEvent e) {
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
+
+                if (node == null) return;
+
+                Object nodeInfo = node.getUserObject();
+                if (!node.isLeaf()) {
+                    return;
+                }
+                FileInfo file_infsoas = (FileInfo)nodeInfo;
+                if(file_infsoas == null){
+                    return;
+                }
+                
+                Open(file_infsoas.path);
+            }
+        });
 
         JScrollPane treeView = new JScrollPane(tree);
         layout.add(treeView, BorderLayout.LINE_START);
@@ -164,7 +200,7 @@ public final class TextEdit extends JFrame implements ActionListener implements 
         Log.Message("Stepping into: " + directory.getFileName().toString());
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(directory)) {
             for (Path child : ds) {
-                Log.Message(child.getFileName().toString());
+                //Log.Message(child.getFileName().toString());
                 if (Files.isDirectory(child)) {
                     DefaultMutableTreeNode child_node = new DefaultMutableTreeNode(child.getFileName().toString());
                     parent.add(child_node);
@@ -173,15 +209,12 @@ public final class TextEdit extends JFrame implements ActionListener implements 
                 }else{
                     String file_str =  child.toString();
                     if(file_str.endsWith(".java")){
-                        Log.Message("Adding " + child.getFileName().toString());
+                        //Log.Message("Adding " + child.getFileName().toString());
                         JButton button = new JButton(child.getFileName().toString());
-                        button.addActionListener(new ActionListener(){
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                Open(child);
-                            }
-                        });
-                        DefaultMutableTreeNode child_node = new DefaultMutableTreeNode(new FileInfo(true, child, child.getFileName().toString()));
+                        DefaultMutableTreeNode child_node = new DefaultMutableTreeNode(new FileInfo(true, child, child.getFileName().toString(), false));
+                        //m_files_all.add((FileInfo)child_node.getUserObject());
+                        m_files_not_compiled.add((FileInfo)child_node.getUserObject());
+                        
                         parent.add(child_node);
                         all.add(child);
                     }
@@ -189,23 +222,6 @@ public final class TextEdit extends JFrame implements ActionListener implements 
 
             }
         }
-    }
-
-    public void valueChanged(TreeSelectionEvent e) {
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
-
-        if (node == null) return;
-
-        Object nodeInfo = node.getUserObject();
-        if (!node.isLeaf()) {
-            return;
-        }
-        FileInfo file_infsoas = (FileInfo)nodeInfo;
-        if(file_infsoas == null){
-            return;
-        }
-        
-        Open(file_infsoas.path);
     }
 
 
@@ -551,11 +567,13 @@ public final class TextEdit extends JFrame implements ActionListener implements 
             return;
         }
 
+        Log.Warning(Integer.toString(m_files.size()));
         for(int i = 0; i < m_files.size(); i++){
             try{
-                if(m_files.get(i).path.toRealPath().compareTo(path) < 1){
+                Log.Warning(m_files.get(i).path.toRealPath().toString());
+                if(m_files.get(i).path.toRealPath().toString().equals(path.toString())){
                     tabs.setSelectedIndex(i);
-                    Log.Message(path.toString() + " is already open!");
+                    Log.Message(m_files.get(i).path.toRealPath().toString() + " " + path.toString() + " is already open!");
                     return;
                 }
             }catch (IOException iE){
@@ -598,6 +616,7 @@ public final class TextEdit extends JFrame implements ActionListener implements 
     }
 
     private void SaveFile(int i){
+        m_files_not_compiled.add(m_files.get(i));
         if(m_files.get(i).path.toString().length() < 1){
             JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
             jfc.setDialogTitle("Choose destination.");
@@ -628,6 +647,7 @@ public final class TextEdit extends JFrame implements ActionListener implements 
             System.out.println("Error copying text");
             return;
         }
+        tabs.setTitleAt(i, m_files.get(i).name);
     }
 
     private void HandleUnsaved(){
@@ -653,7 +673,13 @@ public final class TextEdit extends JFrame implements ActionListener implements 
     public TextEdit() { run(); }
 
     public void OnChage(){
+        if(Saved(tabs.getSelectedIndex())){
+            m_files_not_compiled.add(m_files.get(tabs.getSelectedIndex()));
+        }
         m_files.get(tabs.getSelectedIndex()).saved = false;
+        m_files.get(tabs.getSelectedIndex()).compiled = false;
+        tabs.setTitleAt(tabs.getSelectedIndex(), m_files.get(tabs.getSelectedIndex()).name + " *");
+    
         JScrollPane scrollPane = (JScrollPane) tabs.getSelectedComponent();
         JTextPane textPane = (JTextPane) scrollPane.getViewport().getView();
         StyledDocument doc = textPane.getStyledDocument();
@@ -688,8 +714,15 @@ public final class TextEdit extends JFrame implements ActionListener implements 
         newScroll.setBackground(Color.GRAY);
         tabs.addTab(name, newScroll);
 
-        m_files.add(new FileInfo(false, Paths.get(""), name));
+        m_files.add(new FileInfo(false, Paths.get(""), name, false));
+        m_files_not_compiled.add(m_files.get(m_files.size() - 1));
         return tabs.getTabCount() - 1;
+    }
+
+    private void CloseTab(int i){
+        HandleUnsaved();
+        m_files.remove(i);
+        tabs.remove(i);
     }
 
     public void run() {
@@ -781,12 +814,13 @@ public final class TextEdit extends JFrame implements ActionListener implements 
         compile_button.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e) {
-                int id = TextEdit.tabs.getSelectedIndex();
-                SaveFile(id);
-                if(TextEdit.m_files.get(id).path.toString().length() < 1){
-                    HandleUnsaved();
+                HandleUnsaved();
+                if(m_files_not_compiled.size() < 1){
+                    return;
                 }
-                Compiler.CopileCMD(TextEdit.m_files.get(id).path.toString());
+                if(Compiler.CopileCMD(m_files_not_compiled)){
+                    m_files_not_compiled.clear();
+                }
             }
         });
 
@@ -796,11 +830,24 @@ public final class TextEdit extends JFrame implements ActionListener implements 
             @Override
             public void actionPerformed(ActionEvent e) {
                 int id = TextEdit.tabs.getSelectedIndex();
-                SaveFile(id);
-                if(TextEdit.m_files.get(id).path.toString().length() < 1){
-                    HandleUnsaved();
+                HandleUnsaved();
+                if(m_files_not_compiled.size() < 1){
+                    if(Compiler.CopileCMD(m_files_not_compiled)){
+                        m_files_not_compiled.clear();
+                    }
                 }
                 Compiler.Run(TextEdit.m_files.get(id).path.toString());
+                m_files_not_compiled.clear();
+            }
+        });
+
+        // cloce tab
+        JButton close_button = new JButton("Close Tab");
+        close_button.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int id = TextEdit.tabs.getSelectedIndex();
+                CloseTab(id);
             }
         });
 
@@ -808,6 +855,7 @@ public final class TextEdit extends JFrame implements ActionListener implements 
         menu_main.add(format_button);
         menu_main.add(compile_button);
         menu_main.add(run_button);
+        menu_main.add(close_button);
 
         frame.setJMenuBar(menu_main);
     }
@@ -836,7 +884,7 @@ public final class TextEdit extends JFrame implements ActionListener implements 
         else if (ae.equals("Save")) {
             SaveFile(tabs.getSelectedIndex());
         } else if (ae.equals("New")) {
-            NewTab("New Java File");
+            NewTab("New Java File *");
         } else if (ae.equals("Quit")) {
             HandleUnsaved();
             System.exit(0);

@@ -5,7 +5,8 @@ import java.io.IOException;
 import java.util.Scanner;
 
 public class CommandExecuter{
-    public static void ExecuteCommand(String command) {
+    public static int ExecuteCommand(String command) { // returns error count
+        int error = 0;
         try {
             Log.Message(command);
             Process process = Runtime.getRuntime().exec(command);
@@ -23,10 +24,13 @@ public class CommandExecuter{
                 line = errors.readLine();
                 if (line == null) { break; }
                 Log.Error(line);
+                error++;
             }
             process.waitFor();
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
+            error++;
         }
+        return error;
     }
 }
