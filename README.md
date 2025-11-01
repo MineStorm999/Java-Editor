@@ -16,19 +16,18 @@ I am making a custom Java Editor, because my teacher wants to use one that I don
 - open the directory in terminal
 - run Setup.bat/.sh (win/linux,mac)
 - run JavaEditor.bat/.sh (win/linux,mac)
-
+- Go To File > Open Folder and select workspace
+- Click on file to see the folderstructure at least a bit   // todo
 
 
 
 # TODO
 - FIX BUGS
-    - Brackets are not formatted correctly
+    - Folderview is buggy
 
 - javac Error parsing 
     - jump to error/warning file, line and character
-
-- Source Folder system like vs code
-
+    
 - Intelisense
     - read available sources
     - read from Java docs
