@@ -276,9 +276,13 @@ public final class TextEdit extends JFrame implements ActionListener {
             // Apply styles to keywords
             String[] keywords = {
                 "abstract", "boolean", "break", "class", "extends", "for", "if", "new", "return",
-                "while", "public", "private", "static", "void", "int", "double", "import", "@Override"
+                "while", "public", "private", "static", "void", "int", "double", "import", "@Override", "implements", "true", "false"
             };
-            String text = textPane.getText();
+            String text = textPane.getText();//.replace("\n", "");//.replace("\r", "");
+
+            // remove newline characters
+            
+
             SyntaxHighlighter.SetTextColor(doc, 0, text.length(), Color.BLACK); // TODO multible styles (light/dark)
 
 
